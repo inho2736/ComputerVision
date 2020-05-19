@@ -1,7 +1,10 @@
 ﻿
 // RGBDlg.cpp: 구현 파일
 //
-
+#include "math.h"
+#include "vector"
+#include "limits"
+//
 #include "pch.h"
 #include "framework.h"
 //#include "stdafx.h"
@@ -13,6 +16,8 @@
 #define new DEBUG_NEW
 #endif
 #define FOREWARD 3
+#define INF std::numeric_limits<double>::infinity()
+using namespace std;
 int findThreshold(Mat &m);
 //
 void RGBsep(int i, Mat img, Mat& copy, char* str);
@@ -26,9 +31,16 @@ void Dilation(Mat img, Mat& copy, int element_x, int element_y);
 void Erosion(Mat img, Mat& copy, int element_x, int element_y);
 //
 void read_neighbor8(int y, int x, int neighbor8[], Mat src_img);
-void BTracing8(int y, int x, int label, int tag, int num_region[], Mat src_img, Mat* label_img, Mat* output_img);
-void contourTracing(Mat input_img, int index);
+void BTracing8(int y, int x, int label, int tag, int num_region[], Mat src_img, Mat* label_img, Mat* output_img, vector <pair<int, int>> &boundary);
+Mat contourTracing(Mat input_img, int index, vector <pair<int, int>> &boundary);
 void calCoord(int i, int* y, int* x);
+//
+double getLength(int x1, int y1, int x2, int y2, int rx, int ry);
+void lcs(vector <pair<int, int>> &boundary, vector<double> &arr_lcs);
+//
+pair<double, int> calMin(double a, double b, double c);
+double Dtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2);
+double d_func(double a, double b);
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
 
 class CAboutDlg : public CDialogEx
@@ -61,10 +73,7 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
 END_MESSAGE_MAP()
 
-
 // CRGBDlg 대화 상자
-
-
 
 CRGBDlg::CRGBDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_RGB_DIALOG, pParent)
@@ -85,9 +94,8 @@ BEGIN_MESSAGE_MAP(CRGBDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_Img_Search, &CRGBDlg::OnBnClickedImgSearch)
 	ON_BN_CLICKED(IDC_Img_Save, &CRGBDlg::OnBnClickedImgSave)
 	
+	ON_BN_CLICKED(IDC_Img_Search2, &CRGBDlg::OnBnClickedImgSearch2)
 END_MESSAGE_MAP()
-
-
 // CRGBDlg 메시지 처리기
 
 BOOL CRGBDlg::OnInitDialog()
@@ -173,8 +181,6 @@ HCURSOR CRGBDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-
-
 void CRGBDlg::OnBnClickedImgSearch()
 {
 	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG) | *.BMP;*.GIF;*.JPG;*.bmp;*.jpg;*.gif |모든파일(*.*)|*.*||");
@@ -189,7 +195,20 @@ void CRGBDlg::OnBnClickedImgSearch()
 		
 	}
 }
+void CRGBDlg::OnBnClickedImgSearch2()
+{
+	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG) | *.BMP;*.GIF;*.JPG;*.bmp;*.jpg;*.gif |모든파일(*.*)|*.*||");
+	CFileDialog dlg(TRUE, _T("*.jpg"), _T("image"), OFN_HIDEREADONLY, szFilter);
+	if (IDOK == dlg.DoModal())
+	{
+		pathName = dlg.GetPathName();
+		CT2CA pszConvertedAnsiString_up(pathName);
+		std::string up_pathName_str(pszConvertedAnsiString_up);
+		img2 = cv::imread(up_pathName_str);
+		//DisplayImage(img2, 3);
 
+	}
+}
 void CRGBDlg::DisplayImage(Mat targetMat, int channel)
 {
 	CDC *pDC = nullptr;
@@ -247,9 +266,6 @@ void CRGBDlg::DisplayImage(Mat targetMat, int channel)
 	tempImage.release();
 	ReleaseDC(pDC);
 }
-
-
-
 int findThreshold(Mat &m)
 {
 	long double histogram[256] = { 0, };
@@ -304,7 +320,6 @@ int findThreshold(Mat &m)
 	}
 	return index;
 }
-///////////////////////////////////////////////
 
 void CRGBDlg::OnBnClickedImgSave()
 {
@@ -312,9 +327,11 @@ void CRGBDlg::OnBnClickedImgSave()
 	char str_gray[3][100] = { "red_grayscale", "green_grayscale", "blue_grayscale" };
 	char str_otsu[3][100] = { "red_otsu", "green_otsu", "blue_otsu" };
 	
-	Mat copy, gray, otsu, open, close, contour;
-
-	for (int i = 0; i < 3; i++) // 0-red, 1-green, 2-blue
+	Mat copy, gray, otsu, open, close, contour;	
+	vector<double> arr_lcs1;
+	vector<double> arr_lcs2;
+	
+	/*for (int i = 0; i < 3; i++) // 0-red, 1-green, 2-blue
 	{
 		copy = img.clone();
 		RGBsep(i, img, copy, str_rgb[i]);
@@ -327,8 +344,8 @@ void CRGBDlg::OnBnClickedImgSave()
 		close = otsu.clone();
 		close = Closing(otsu, close, i);
 
-
 		Mat open_c1 = Mat::zeros(open.rows, open.cols, CV_8UC1);
+
 		for (int i = 0; i < open.rows; i++) {
 			for (int j = 0; j < open.cols; j++) {
 				if (open.data[3 * (open.cols * i + j)] == 255) {
@@ -336,7 +353,6 @@ void CRGBDlg::OnBnClickedImgSave()
 				}
 			}
 		}
-
 		Mat close_c1 = Mat::zeros(close.rows, close.cols, CV_8UC1);
 		for (int i = 0; i < close.rows; i++) {
 			for (int j = 0; j < close.cols; j++) {
@@ -345,14 +361,84 @@ void CRGBDlg::OnBnClickedImgSave()
 				}
 			}
 		}
+		vector<pair<int, int>> boundary;
 		
-		contourTracing(open_c1, i);
-		contourTracing(close_c1, i);
+		contour = contourTracing(open_c1, i, boundary);
 		
-	}
+		getLength(1, 2, 2, 1, 2, 4);
+		lcs(boundary, arr_lcs1);
+	}*/
 	
-}
+	copy = img.clone();
+	RGBsep(0, img, copy, str_rgb[0]);
+	gray = copy.clone();
+	Grayscale(copy, gray, str_gray[0]);
+	otsu = gray.clone();
+	Otsu_binary(gray, otsu, str_otsu[0]);
+	open = otsu.clone();
+	open = Opening(otsu, open, 0);
+	close = otsu.clone();
+	close = Closing(otsu, close, 0);
 
+	Mat open_c1 = Mat::zeros(open.rows, open.cols, CV_8UC1);
+
+	for (int i = 0; i < open.rows; i++) {
+		for (int j = 0; j < open.cols; j++) {
+			if (open.data[3 * (open.cols * i + j)] == 255) {
+				open_c1.data[open.cols * i + j] = 255;
+			}
+		}
+	}
+	Mat close_c1 = Mat::zeros(close.rows, close.cols, CV_8UC1);
+	for (int i = 0; i < close.rows; i++) {
+		for (int j = 0; j < close.cols; j++) {
+			if (close.data[3 * (close.cols * i + j)] == 255) {
+				close_c1.data[close.cols * i + j] = 255;
+			}
+		}
+	}
+	vector<pair<int, int>> boundary1;
+
+	contour = contourTracing(open_c1, 0, boundary1);	
+	lcs(boundary1, arr_lcs1);
+	//////////////////////2222////////////////////////
+
+	copy = img2.clone();
+	RGBsep(0, img2, copy, str_rgb[0]);
+	gray = copy.clone();
+	Grayscale(copy, gray, str_gray[0]);
+	otsu = gray.clone();
+	Otsu_binary(gray, otsu, str_otsu[0]);
+	open = otsu.clone();
+	open = Opening(otsu, open, 0);
+	close = otsu.clone();
+	close = Closing(otsu, close, 0);
+
+	Mat open_c2 = Mat::zeros(open.rows, open.cols, CV_8UC1);
+
+	for (int i = 0; i < open.rows; i++) {
+		for (int j = 0; j < open.cols; j++) {
+			if (open.data[3 * (open.cols * i + j)] == 255) {
+				open_c2.data[open.cols * i + j] = 255;
+			}
+		}
+	}
+	Mat close_c2 = Mat::zeros(close.rows, close.cols, CV_8UC1);
+	for (int i = 0; i < close.rows; i++) {
+		for (int j = 0; j < close.cols; j++) {
+			if (close.data[3 * (close.cols * i + j)] == 255) {
+				close_c2.data[close.cols * i + j] = 255;
+			}
+		}
+	}
+	vector<pair<int, int>> boundary2;
+
+	contour = contourTracing(open_c2, 0, boundary2);
+	lcs(boundary2, arr_lcs2);
+
+	double k = Dtw(arr_lcs1, arr_lcs2);
+	int l = 0;
+}
 void RGBsep(int i, Mat img, Mat& copy, char* str)
 {
 	if (i == 0)      //red
@@ -539,7 +625,6 @@ void printAndsave(char* str, Mat& copy)
 	cv::imwrite(tmp, copy);
 }
 
-////
 void calCoord(int i, int* y, int* x)
 {
 	switch (i)
@@ -555,7 +640,7 @@ void calCoord(int i, int* y, int* x)
 	}
 }
 
-void contourTracing(Mat input_img, int index)
+Mat contourTracing(Mat input_img, int index, vector <pair<int, int>> &boundary)
 {
 	Mat src_img = input_img.clone();
 	int rows = src_img.rows;
@@ -601,7 +686,7 @@ void contourTracing(Mat input_img, int index)
 						continue;
 					num_region[ref_p2]++;
 					label_img.data[cols * i + j] = ref_p2;
-					BTracing8(i, j, ref_p2, BACKWARD, num_region, src_img, &label_img, &output_img);
+					BTracing8(i, j, ref_p2, BACKWARD, num_region, src_img, &label_img, &output_img, boundary);
 				}
 				else if ((ref_p1 == 0) && (ref_p2 == 0)) { // region start
 					if (label_img.data[cols * i + j] != 0)
@@ -609,7 +694,7 @@ void contourTracing(Mat input_img, int index)
 					labelnumber++;
 					num_region[labelnumber]++;
 					label_img.data[cols * i + j] = labelnumber;
-					BTracing8(i, j, labelnumber, FORWARD, num_region, src_img, &label_img, &output_img);
+					BTracing8(i, j, labelnumber, FORWARD, num_region, src_img, &label_img, &output_img, boundary);
 				}
 			}
 			else label_img.data[cols * i + j] = 0;
@@ -631,10 +716,10 @@ void contourTracing(Mat input_img, int index)
 	if (index == 2) {
 		printAndsave("blue contour", output_img);
 	}
-	
+	return output_img;
 }
 
-void BTracing8(int y, int x, int label, int tag, int num_region[], Mat src_img, Mat* label_img, Mat* output_img) {
+void BTracing8(int y, int x, int label, int tag, int num_region[], Mat src_img, Mat* label_img, Mat* output_img, vector <pair<int, int>> &boundary) {
 	int cur_orient, pre_orient, end_x, end_y, pre_x, pre_y;
 	int neighbor8[8];
 	int start_o, add_o;
@@ -646,8 +731,8 @@ void BTracing8(int y, int x, int label, int tag, int num_region[], Mat src_img, 
 	else {
 		cur_orient = pre_orient = 6;
 	}
-
 	end_x = pre_x = x; end_y = pre_y = y;
+
 
 	do {
 		read_neighbor8(y, x, neighbor8, src_img);
@@ -674,6 +759,8 @@ void BTracing8(int y, int x, int label, int tag, int num_region[], Mat src_img, 
 		(*label_img).data[cols * pre_y + pre_x] = label;
 		(*output_img).data[cols * pre_y + pre_x] = 255;
 
+		boundary.push_back(make_pair(pre_x, pre_y));
+
 		pre_x = x; pre_y = y; pre_orient = cur_orient;
 	} while ((y != end_y) || (x != end_x));
 }
@@ -692,5 +779,154 @@ void read_neighbor8(int y, int x, int neighbor8[], Mat src_img) {
 	neighbor8[7] = src_img.data[cols * (y - 1) + x + 1];
 }
 
+double getLength(int x1,  int y1, int x2, int y2, int rx, int ry) {
+	
+	
+	if (x1 == x2) {
+		return abs(x1 - rx);
+	}
+
+	double m = (double)(y2 - y1) / (x2 - x1);
+	double c = y1 - (m * x1);	
+	double bottom = sqrt((m * m) + 1);
+	double top = abs((m * rx) + (-1 * ry) + c);
+	double d = top / bottom;	
+	return d;
+
+}
+
+void lcs(vector <pair<int, int>> &boundary, vector <double> &arr_lcs) {
+	
+	// 경계선 사이즈
+	int length = boundary.size();
+
+	// 임의의 윈도우 사이즈
+	int window = length / 8;
+
+	// 윈도우는 홀수여야 함.
+	if (window % 2 == 0) {
+		window++;
+	}
+
+	// 좌 우로 움직일 윈도우 절반 사이즈
+	int half_window = (window - 1) / 2;	
+
+	// 경계선 값을 돌면서
+	for (int i = 0; i < length; i++) {
+		int left = i - half_window;
+		int right = i + half_window;
+
+		// 값이 원형으로 이어질 수 있도록 인덱스 값 조정
+		if (left < 0) {
+			left = length + left;
+		}
+		if (right >= length) {
+			right = right - length;
+		}
+
+		// left right를 잇는 직선과 바운더리 중앙값 사이의 거리 구하기
+		double value = getLength(boundary[left].first, boundary[left].second, boundary[right].first, boundary[right].second, boundary[i].first, boundary[i].second);
+		arr_lcs.push_back(value);
+	}
+	
+}
+
+pair<double, int> calMin(double a, double b, double c) {
+	
+	pair<double, int> tmp = make_pair(a, 1);
+	
+	if (b < tmp.first) {
+		tmp.first = b;
+		tmp.second = 2;
+	}
+	if (c < tmp.first) {
+		tmp.first = c;
+		tmp.second = 3;
+	}
+	return tmp;
+}
+double d_func(double a, double b) {
+	return abs(a - b);
+}
+
+double Dtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2) {
+
+	// lcs1과 lcs2의 길이
+	int arr1_length = arr_lcs1.size();
+	int arr2_length = arr_lcs2.size();
+	
+	// D 배열 선언
+	double **d;
+	d = (double**)malloc(sizeof(double*) * arr1_length);
+	for (int i = 0; i < arr1_length; i++) {
+		d[i] = (double*)malloc(sizeof(double) * arr2_length);
+	}
+
+	// G 배열 선언
+	int **g;
+	g = (int**)malloc(sizeof(int*) * arr1_length);
+	for (int i = 0; i < arr1_length; i++) {
+		g[i] = (int*)malloc(sizeof(int) * arr2_length);
+	}
+	
+	// 0, 0칸 초기화
+	d[0][0] = d_func(arr_lcs1[0], arr_lcs2[0]);
+	g[0][0] = 0;
+
+	// 가로 첫번째줄 초기화
+	for (int i = 1; i < arr2_length; i++) {
+		d[0][i] = d[0][i - 1] + d_func(arr_lcs1[0], arr_lcs2[i]);
+		g[0][i] = 2;
+	}
+
+	// 세로 첫번째줄 초기화
+	for (int i = 1; i < arr1_length; i++) {
+		d[i][0] = INF;
+	}
+
+	// FORWARD
+	for (int i = 1; i < arr1_length; i++) {
+		for (int j = 1; j < arr2_length; j++) {
+			pair<double, int> tmp = calMin(d[i-1][j], d[i][j-1], d[i-1][j-1]);
+			d[i][j] = d_func(arr_lcs1[i], arr_lcs2[j]) + tmp.first;
+			g[i][j] = tmp.second;
+		}
+	}
+
+	// 백트래킹
+	int i = arr1_length - 1;
+	int j = arr2_length - 1 ;
+	int k = 1;
+
+	while ((i != 0) && (j != 0)) {
+		switch (g[i][j]) {
+		case 1:
+			i--; k++; break;
+		case 2:
+			j--; k++; break;
+		case 3:
+			i--; j--; k++; break;
+		}
+	}
+
+	double dissimilarity = d[arr1_length - 1][arr2_length - 1] / k;
+	
+	for (int i = 0; i < arr1_length; i++) {
+		free(d[i]);
+	}
+	free(d);
+
+	for (int i = 0; i < arr1_length; i++) {
+		free(g[i]);
+	}
+	free(g);
+
+	return dissimilarity;
+
+}
+
+void Sdtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2, vector <double> &arr_lcs3) {
+
+}
 
 

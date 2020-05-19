@@ -14,7 +14,7 @@ class CRGBDlg : public CDialogEx
 public:
 	CRGBDlg(CWnd* pParent = NULL);	// 표준 생성자입니다.
 	Mat img;
-	
+	Mat img2;
 	CString pathName;
 	CRect rect;
 	
@@ -50,4 +50,5 @@ public:
 	afx_msg void OnBnClickedBlueBtn();
 	afx_msg void OnBnClickedChange1();
 	afx_msg void OnBnClickedChange2();
+	afx_msg void OnBnClickedImgSearch2();
 };
