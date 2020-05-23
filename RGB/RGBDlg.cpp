@@ -46,10 +46,10 @@ double d_func1(double a, double b);
 double variation(vector <double> &a, double avg);
 double average(vector <double> tmp);
 void new_dtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2, vector<vector <double>> &total);
-void Sdtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2, vector <double> &arr_lcs3, vector <double> &train_avg, vector <double> &train_var);
+void Sdtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2, vector <double> &arr_lcs3,  vector <double> &train_avg, vector <double> &train_var);
 //
 bool cut_compare(double a, double b);
-vector<pair<int, int>> before(Mat &img);
+vector<pair<int, int>> pretreatment(Mat &img);
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
 
 vector <double> train_avg1;
@@ -114,9 +114,14 @@ BEGIN_MESSAGE_MAP(CRGBDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_Img_Search7, &CRGBDlg::OnBnClickedImgSearch7)
 	ON_BN_CLICKED(IDC_Img_Search8, &CRGBDlg::OnBnClickedImgSearch8)
 	ON_BN_CLICKED(IDC_Img_Search9, &CRGBDlg::OnBnClickedImgSearch9)
-	ON_BN_CLICKED(IDC_Img_Search10, &CRGBDlg::OnBnClickedImgSearch10)
+	
 	
 	ON_BN_CLICKED(IDC_Img_recog, &CRGBDlg::OnBnClickedImgrecog)
+	/*
+	ON_BN_CLICKED(IDC_Img_Search11, &CRGBDlg::OnBnClickedImgSearch11)
+	ON_BN_CLICKED(IDC_Img_Search12, &CRGBDlg::OnBnClickedImgSearch12)
+	ON_BN_CLICKED(IDC_Img_Search13, &CRGBDlg::OnBnClickedImgSearch13)
+	ON_BN_CLICKED(IDC_Img_Search14, &CRGBDlg::OnBnClickedImgSearch14)*/
 END_MESSAGE_MAP()
 // CRGBDlg 메시지 처리기
 
@@ -210,15 +215,15 @@ void CRGBDlg::OnBnClickedImgSearch()
 	if (IDOK == dlg.DoModal())
 	{
 		pathName = dlg.GetPathName();
-		CString msg;
+		/*CString msg;
 
 		msg.Format(_T("%s "), pathName);
 
-		AfxMessageBox(msg);
+		AfxMessageBox(msg);*/
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img = cv::imread(up_pathName_str);
-		DisplayImage(img, 3);
+		circle_train1 = cv::imread(up_pathName_str);
+		DisplayImage(circle_train1, 3);
 
 	}
 }
@@ -231,8 +236,7 @@ void CRGBDlg::OnBnClickedImgSearch2()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img2 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		circle_train2 = cv::imread(up_pathName_str);		
 
 	}
 }
@@ -248,8 +252,7 @@ void CRGBDlg::OnBnClickedImgSearch3()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img3 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		circle_train3 = cv::imread(up_pathName_str);	
 
 	}
 
@@ -265,8 +268,7 @@ void CRGBDlg::OnBnClickedImgSearch6()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img4 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		triagle_train1 = cv::imread(up_pathName_str);		
 
 	}
 }
@@ -281,8 +283,7 @@ void CRGBDlg::OnBnClickedImgSearch7()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img5 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		triagle_train2 = cv::imread(up_pathName_str);
 
 	}
 }
@@ -296,12 +297,38 @@ void CRGBDlg::OnBnClickedImgSearch8()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img6 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		triagle_train3 = cv::imread(up_pathName_str);
 
 	}
 }
+/*void CRGBDlg::OnBnClickedImgSearch13()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG) | *.BMP;*.GIF;*.JPG;*.bmp;*.jpg;*.gif |모든파일(*.*)|*.*||");
+	CFileDialog dlg(TRUE, _T("*.jpg"), _T("image"), OFN_HIDEREADONLY, szFilter);
+	if (IDOK == dlg.DoModal())
+	{
+		pathName = dlg.GetPathName();
+		CT2CA pszConvertedAnsiString_up(pathName);
+		std::string up_pathName_str(pszConvertedAnsiString_up);
+		triagle_train4 = cv::imread(up_pathName_str);
 
+	}
+}
+void CRGBDlg::OnBnClickedImgSearch14()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG) | *.BMP;*.GIF;*.JPG;*.bmp;*.jpg;*.gif |모든파일(*.*)|*.*||");
+	CFileDialog dlg(TRUE, _T("*.jpg"), _T("image"), OFN_HIDEREADONLY, szFilter);
+	if (IDOK == dlg.DoModal())
+	{
+		pathName = dlg.GetPathName();
+		CT2CA pszConvertedAnsiString_up(pathName);
+		std::string up_pathName_str(pszConvertedAnsiString_up);
+		triagle_train5 = cv::imread(up_pathName_str);
+
+	}
+}*/
 void CRGBDlg::OnBnClickedImgSearch9()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
@@ -312,12 +339,12 @@ void CRGBDlg::OnBnClickedImgSearch9()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img7 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		img_test = cv::imread(up_pathName_str);	
 
 	}
 }
-void CRGBDlg::OnBnClickedImgSearch10()
+/*
+void CRGBDlg::OnBnClickedImgSearch11()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG) | *.BMP;*.GIF;*.JPG;*.bmp;*.jpg;*.gif |모든파일(*.*)|*.*||");
@@ -327,12 +354,23 @@ void CRGBDlg::OnBnClickedImgSearch10()
 		pathName = dlg.GetPathName();
 		CT2CA pszConvertedAnsiString_up(pathName);
 		std::string up_pathName_str(pszConvertedAnsiString_up);
-		img8 = cv::imread(up_pathName_str);
-		//DisplayImage(img2, 3);
+		circle_train4 = cv::imread(up_pathName_str);
 
 	}
 }
-
+void CRGBDlg::OnBnClickedImgSearch12()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	static TCHAR BASED_CODE szFilter[] = _T("이미지 파일(*.BMP, *.GIF, *.JPG) | *.BMP;*.GIF;*.JPG;*.bmp;*.jpg;*.gif |모든파일(*.*)|*.*||");
+	CFileDialog dlg(TRUE, _T("*.jpg"), _T("image"), OFN_HIDEREADONLY, szFilter);
+	if (IDOK == dlg.DoModal())
+	{
+		pathName = dlg.GetPathName();
+		CT2CA pszConvertedAnsiString_up(pathName);
+		std::string up_pathName_str(pszConvertedAnsiString_up);
+		circle_train5 = cv::imread(up_pathName_str);
+	}
+}*/
 
 
 
@@ -450,30 +488,44 @@ int findThreshold(Mat &m)
 
 void CRGBDlg::OnBnClickedImgSave()
 {
+
 	vector<double> arr_lcs1;
 	vector<double> arr_lcs2;
 	vector<double> arr_lcs3;
+	//vector<double> arr_lcs4;
+	//vector<double> arr_lcs5;
 	
-	vector<pair<int, int>> boundary1 = before(img);
-	vector<pair<int, int>> boundary2 = before(img2);
-	vector<pair<int, int>> boundary3 = before(img3);
+	vector<pair<int, int>> boundary1 = pretreatment(circle_train1);
+	vector<pair<int, int>> boundary2 = pretreatment(circle_train2);
+	vector<pair<int, int>> boundary3 = pretreatment(circle_train3);
+	//vector<pair<int, int>> boundary4 = pretreatment(circle_train4);
+	//vector<pair<int, int>> boundary5 = pretreatment(circle_train5);
 
 	
 	lcs(boundary1, arr_lcs1);	
 	lcs(boundary2, arr_lcs2);
 	lcs(boundary3, arr_lcs3);
+	//lcs(boundary4, arr_lcs4);
+	//lcs(boundary5, arr_lcs5);
 
-	vector<double> arr_lcs4;
-	vector<double> arr_lcs5;
+	
 	vector<double> arr_lcs6;
+	vector<double> arr_lcs7;
+	vector<double> arr_lcs8;
+	//vector<double> arr_lcs9;
+	//vector<double> arr_lcs10;
 
-	vector<pair<int, int>> boundary4 = before(img4);
-	vector<pair<int, int>> boundary5 = before(img5);
-	vector<pair<int, int>> boundary6 = before(img6);
+	vector<pair<int, int>> boundary6 = pretreatment(triagle_train1);
+	vector<pair<int, int>> boundary7 = pretreatment(triagle_train2);
+	vector<pair<int, int>> boundary8 = pretreatment(triagle_train3);
+	//vector<pair<int, int>> boundary9 = pretreatment(triagle_train4);
+	//vector<pair<int, int>> boundary10 = pretreatment(triagle_train5);
 
-	lcs(boundary4, arr_lcs4);
-	lcs(boundary5, arr_lcs5);
 	lcs(boundary6, arr_lcs6);
+	lcs(boundary7, arr_lcs7);
+	lcs(boundary8, arr_lcs8);
+	//lcs(boundary9, arr_lcs9);
+	//lcs(boundary10, arr_lcs10);
 
 	
 
@@ -481,7 +533,7 @@ void CRGBDlg::OnBnClickedImgSave()
 
 	
 
-	Sdtw(arr_lcs4, arr_lcs5, arr_lcs6, train_avg2, train_var2);
+	Sdtw(arr_lcs6, arr_lcs7, arr_lcs8, train_avg2, train_var2);
 	////////////////////////////////////////////////
 	
 	
@@ -492,22 +544,25 @@ void CRGBDlg::OnBnClickedImgSave()
 
 void CRGBDlg::OnBnClickedImgrecog()
 {
-	vector<double> arr_lcs7;
-	
+	vector<double> arr_lcs_test;	
 
-	vector<pair<int, int>> boundary7 = before(img7);
-	
+	vector<pair<int, int>> test_boundary = pretreatment(img_test);	
 
-	lcs(boundary7, arr_lcs7);
+	lcs(test_boundary, arr_lcs_test);
 	
+	double circle = Dtw(train_avg1, arr_lcs_test, train_var1);
+	double triagle = Dtw(train_avg2, arr_lcs_test, train_var2);
 
-	double circle1 = Dtw(train_avg1, arr_lcs7, train_var1);
-	double triagle1 = Dtw(train_avg2, arr_lcs7, train_var2);
 	CString msg;
 
+	if (circle < triagle) {
 
-	msg.Format(_T("원 : %f \n 삼각형 : %f"), circle1, triagle1);
+		msg.Format(_T("원* : %f \n 삼각형 : %f"), circle, triagle);
+	}
+	else {
+		msg.Format(_T("원 : %f \n 삼각형* : %f"), circle, triagle);
 
+	}
 	AfxMessageBox(msg);
 
 
@@ -559,7 +614,7 @@ void RGBsep(int i, Mat img, Mat& copy, char* str)
 		}
 	}
 
-	//printAndsave(str, copy);
+	
 }
 
 void Grayscale(Mat img, Mat& copy, char* str)
@@ -578,7 +633,7 @@ void Grayscale(Mat img, Mat& copy, char* str)
 		}
 	}
 
-	//printAndsave(str, copy);
+	printAndsave(str, copy);
 }
 
 void Otsu_binary(Mat img, Mat& copy, char* str)
@@ -587,21 +642,22 @@ void Otsu_binary(Mat img, Mat& copy, char* str)
 	int threshold = findThreshold(img);
 	for (int y = 0; y < copy.rows; y++)
 	{
-		unsigned char* ptr1 = img.data + 3 * (img.cols*y);
-		unsigned char* resultptr = copy.data + 3 * (copy.cols*y);
+		unsigned char* ptr = img.data + 3 * (img.cols*y);
+		unsigned char* last = copy.data + 3 * (copy.cols*y);
 		for (int x = 0; x < copy.cols; x++)
 		{
-			int bin = 0;
-			if ((int)ptr1[3 * x] > threshold)
-				bin = 255;
-
-			resultptr[3 * x + 0] = bin;
-			resultptr[3 * x + 1] = bin;
-			resultptr[3 * x + 2] = bin;
+			int tmp = 0;
+			if ((int)ptr[3 * x] > threshold) {
+				tmp = 255;
+			}
+			for (int i = 0; i < 3; i++) {
+				last[3 * x + i] = tmp;
+			}
+			
 		}
 	}
 
-	//printAndsave(str, copy);
+	printAndsave(str, copy);
 }
 Mat Opening(Mat img, Mat& copy, int index)
 {
@@ -880,7 +936,6 @@ void Read_neighbor8(int y, int x, int neighbor8[], Mat src) {
 
 double getLength(int x1, int y1, int x2, int y2, int rx, int ry) {
 
-
 	if (x1 == x2) {
 		return abs(x1 - rx);
 	}
@@ -1049,19 +1104,20 @@ void Sdtw(vector <double> &arr_lcs1, vector <double> &arr_lcs2, vector <double> 
 			new_dtw(arr_lcs1, arr_lcs2, total);
 			new_dtw(arr_lcs1, arr_lcs3, total);
 		}
+		
+		
 
 		// arr_lcs1의 값도 넣어서 평균 같이구해야함
 		for (int i = 0; i < length; i++) {
 			total[i].push_back(arr_lcs1[i]);
 		}
 
-		// 새 lcs 만들기,
+		// 새 평균패턴 생성,
 		vector <double> new_lcs;
 		
 		for (int i = 0; i < length; i++) {
 			double avg = average(total[i]);
-			new_lcs.push_back(avg);
-		
+			new_lcs.push_back(avg);		
 		}
 		
 
@@ -1206,7 +1262,7 @@ bool cut_compare(double a, double b) {
 		return false;
 	}
 }
-vector<pair<int, int>> before(Mat &img) {
+vector<pair<int, int>> pretreatment(Mat &img) {
 	Mat copy, gray, otsu, open, close, contour;
 
 	char str_rgb[3][100] = { "red", "green", "blue" };
@@ -1223,7 +1279,7 @@ vector<pair<int, int>> before(Mat &img) {
 	open = Opening(otsu, open, 0);
 	close = otsu.clone();
 	close = Closing(otsu, close, 0);
-	cv::imshow("test1", open);
+	//cv::imshow("test1", open);
 	Mat open_c1 = Mat::zeros(open.rows, open.cols, CV_8UC1);
 
 	for (int i = 0; i < open.rows; i++) {
@@ -1247,6 +1303,16 @@ vector<pair<int, int>> before(Mat &img) {
 	
 	return boundary;
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
